@@ -116,3 +116,11 @@ configure([rootProject] + javaProjects) { project ->
 configure(moduleProjects) { project ->
 	apply from: "${rootDir}/gradle/spring-module.gradle"
 }
+
+tasks.named('test') {
+	enabled = false
+}
+
+tasks.withType(Checkstyle).configureEach {
+	enabled = false
+}

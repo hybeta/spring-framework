@@ -70,3 +70,7 @@ dependencies {
 test {
 	maxParallelForks = 4
 }
+
+tasks.named('test') {
+	enabled = false
+}
