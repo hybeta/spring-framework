@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,31 +23,26 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.spi.PersistenceProvider;
 import jakarta.persistence.spi.PersistenceUnitInfo;
-import jakarta.persistence.spi.PersistenceUnitTransactionType;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.dialect.DB2Dialect;
-import org.hibernate.dialect.DerbyTenSevenDialect;
 import org.hibernate.dialect.H2Dialect;
-import org.hibernate.dialect.HANAColumnStoreDialect;
+import org.hibernate.dialect.HANADialect;
 import org.hibernate.dialect.HSQLDialect;
-import org.hibernate.dialect.Informix10Dialect;
-import org.hibernate.dialect.MySQL57Dialect;
 import org.hibernate.dialect.MySQLDialect;
-import org.hibernate.dialect.Oracle12cDialect;
-import org.hibernate.dialect.PostgreSQL95Dialect;
-import org.hibernate.dialect.SQLServer2012Dialect;
+import org.hibernate.dialect.OracleDialect;
+import org.hibernate.dialect.PostgreSQLDialect;
 import org.hibernate.dialect.SQLServerDialect;
 import org.hibernate.dialect.SybaseDialect;
 import org.hibernate.resource.jdbc.spi.PhysicalConnectionHandlingMode;
+import org.jspecify.annotations.Nullable;
 
-import org.springframework.lang.Nullable;
-import org.springframework.util.ClassUtils;
+import org.springframework.orm.jpa.persistenceunit.SmartPersistenceUnitInfo;
 
 /**
  * {@link org.springframework.orm.jpa.JpaVendorAdapter} implementation for Hibernate.
- * Compatible with Hibernate ORM 5.5/5.6 as well as 6.0/6.1/6.2/6.3.
+ * Compatible with Hibernate ORM 7.x.
  *
  * <p>Exposes Hibernate's persistence provider and Hibernate's Session as extended
  * EntityManager interface, and adapts {@link AbstractJpaVendorAdapter}'s common
@@ -72,9 +67,6 @@ import org.springframework.util.ClassUtils;
  */
 public class HibernateJpaVendorAdapter extends AbstractJpaVendorAdapter {
 
-	private static final boolean oldDialectsPresent = ClassUtils.isPresent(
-			"org.hibernate.dialect.PostgreSQL95Dialect", HibernateJpaVendorAdapter.class.getClassLoader());
-
 	private final HibernateJpaDialect jpaDialect = new HibernateJpaDialect();
 
 	private final PersistenceProvider persistenceProvider;
@@ -86,8 +78,8 @@ public class HibernateJpaVendorAdapter extends AbstractJpaVendorAdapter {
 
 	public HibernateJpaVendorAdapter() {
 		this.persistenceProvider = new SpringHibernateJpaPersistenceProvider();
-		this.entityManagerFactoryInterface = SessionFactory.class;  // as of Spring 5.3
-		this.entityManagerInterface = Session.class;  // as of Spring 5.3
+		this.entityManagerFactoryInterface = SessionFactory.class;
+		this.entityManagerInterface = Session.class;
 	}
 
 
@@ -132,7 +124,7 @@ public class HibernateJpaVendorAdapter extends AbstractJpaVendorAdapter {
 	@Override
 	public Map<String, Object> getJpaPropertyMap(PersistenceUnitInfo pui) {
 		return buildJpaPropertyMap(this.jpaDialect.prepareConnection &&
-				pui.getTransactionType() != PersistenceUnitTransactionType.JTA);
+				(pui instanceof SmartPersistenceUnitInfo spui && !spui.isConfiguredForJta()));
 	}
 
 	@Override
@@ -150,6 +142,12 @@ public class HibernateJpaVendorAdapter extends AbstractJpaVendorAdapter {
 			Class<?> databaseDialectClass = determineDatabaseDialectClass(getDatabase());
 			if (databaseDialectClass != null) {
 				jpaProperties.put(AvailableSettings.DIALECT, databaseDialectClass.getName());
+			}
+			else {
+				String databaseDialectName = determineDatabaseDialectName(getDatabase());
+				if (databaseDialectName != null) {
+					jpaProperties.put(AvailableSettings.DIALECT, databaseDialectName);
+				}
 			}
 		}
 
@@ -173,43 +171,39 @@ public class HibernateJpaVendorAdapter extends AbstractJpaVendorAdapter {
 
 	/**
 	 * Determine the Hibernate database dialect class for the given target database.
+	 * <p>The default implementation covers the common built-in dialects.
 	 * @param database the target database
 	 * @return the Hibernate database dialect class, or {@code null} if none found
+	 * @see #determineDatabaseDialectName
 	 */
-	@SuppressWarnings("deprecation")  // for OracleDialect on Hibernate 5.6 and DerbyDialect/PostgreSQLDialect on Hibernate 6.2
-	@Nullable
-	protected Class<?> determineDatabaseDialectClass(Database database) {
-		if (oldDialectsPresent) {  // Hibernate <6.2
-			return switch (database) {
-				case DB2 -> DB2Dialect.class;
-				case DERBY -> DerbyTenSevenDialect.class;
-				case H2 -> H2Dialect.class;
-				case HANA -> HANAColumnStoreDialect.class;
-				case HSQL -> HSQLDialect.class;
-				case INFORMIX -> Informix10Dialect.class;
-				case MYSQL -> MySQL57Dialect.class;
-				case ORACLE -> Oracle12cDialect.class;
-				case POSTGRESQL -> PostgreSQL95Dialect.class;
-				case SQL_SERVER -> SQLServer2012Dialect.class;
-				case SYBASE -> SybaseDialect.class;
-				default -> null;
-			};
-		}
-		else {  // Hibernate 6.2+ aligned
-			return switch (database) {
-				case DB2 -> DB2Dialect.class;
-				case DERBY -> org.hibernate.dialect.DerbyDialect.class;
-				case H2 -> H2Dialect.class;
-				case HANA -> HANAColumnStoreDialect.class;
-				case HSQL -> HSQLDialect.class;
-				case MYSQL -> MySQLDialect.class;
-				case ORACLE -> org.hibernate.dialect.OracleDialect.class;
-				case POSTGRESQL -> org.hibernate.dialect.PostgreSQLDialect.class;
-				case SQL_SERVER -> SQLServerDialect.class;
-				case SYBASE -> SybaseDialect.class;
-				default -> null;
-			};
-		}
+	protected @Nullable Class<?> determineDatabaseDialectClass(Database database) {
+		return switch (database) {
+			case DB2 -> DB2Dialect.class;
+			case H2 -> H2Dialect.class;
+			case HANA -> HANADialect.class;
+			case HSQL -> HSQLDialect.class;
+			case MYSQL -> MySQLDialect.class;
+			case ORACLE -> OracleDialect.class;
+			case POSTGRESQL -> PostgreSQLDialect.class;
+			case SQL_SERVER -> SQLServerDialect.class;
+			case SYBASE -> SybaseDialect.class;
+			default -> null;
+		};
+	}
+
+	/**
+	 * Determine the Hibernate database dialect class name for the given target database.
+	 * <p>The default implementation covers the common community dialect for Derby.
+	 * @param database the target database
+	 * @return the Hibernate database dialect class name, or {@code null} if none found
+	 * @since 7.0
+	 * @see #determineDatabaseDialectClass
+	 */
+	protected @Nullable String determineDatabaseDialectName(Database database) {
+		return switch (database) {
+			case DERBY -> "org.hibernate.community.dialect.DerbyDialect";
+			default -> null;
+		};
 	}
 
 	@Override

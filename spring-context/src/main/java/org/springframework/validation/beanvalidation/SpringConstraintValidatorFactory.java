@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,6 @@ public class SpringConstraintValidatorFactory implements ConstraintValidatorFact
 		return this.beanFactory.createBean(key);
 	}
 
-	// Bean Validation 1.1 releaseInstance method
 	@Override
 	public void releaseInstance(ConstraintValidator<?, ?> instance) {
 		this.beanFactory.destroyBean(instance);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,8 @@ import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.jspecify.annotations.Nullable;
 
-import org.springframework.lang.Nullable;
 import org.springframework.transaction.ConfigurableTransactionManager;
 import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.InvalidTimeoutException;
@@ -303,7 +303,7 @@ public abstract class AbstractPlatformTransactionManager
 	 * outermost transaction boundary. Switch this flag on to cause an
 	 * UnexpectedRollbackException as early as the global rollback-only marker
 	 * has been first detected, even from within an inner transaction boundary.
-	 * <p>Note that, as of Spring 2.0, the fail-early behavior for global
+	 * <p>Note that the fail-early behavior for global
 	 * rollback-only markers has been unified: All transaction managers will by
 	 * default only cause UnexpectedRollbackException at the outermost transaction
 	 * boundary. This allows, for example, to continue unit tests even after an
@@ -611,8 +611,7 @@ public abstract class AbstractPlatformTransactionManager
 	 * @see #doSuspend
 	 * @see #resume
 	 */
-	@Nullable
-	protected final SuspendedResourcesHolder suspend(@Nullable Object transaction) throws TransactionException {
+	protected final @Nullable SuspendedResourcesHolder suspend(@Nullable Object transaction) throws TransactionException {
 		if (TransactionSynchronizationManager.isSynchronizationActive()) {
 			List<TransactionSynchronization> suspendedSynchronizations = doSuspendSynchronization();
 			try {
@@ -1332,19 +1331,15 @@ public abstract class AbstractPlatformTransactionManager
 	 */
 	protected static final class SuspendedResourcesHolder {
 
-		@Nullable
-		private final Object suspendedResources;
+		private final @Nullable Object suspendedResources;
 
-		@Nullable
-		private List<TransactionSynchronization> suspendedSynchronizations;
+		private @Nullable List<TransactionSynchronization> suspendedSynchronizations;
 
-		@Nullable
-		private String name;
+		private @Nullable String name;
 
 		private boolean readOnly;
 
-		@Nullable
-		private Integer isolationLevel;
+		private @Nullable Integer isolationLevel;
 
 		private boolean wasActive;
 

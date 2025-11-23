@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -405,7 +405,10 @@ class BridgeMethodResolverTests {
 	}
 
 
-	public abstract static class SubBar<T extends StringBuffer> extends InterBar<T> {
+	public abstract static class SubBar<T extends StringProducer> extends InterBar<T> {
+	}
+
+	public interface StringProducer extends CharSequence {
 	}
 
 
@@ -426,14 +429,14 @@ class BridgeMethodResolverTests {
 	}
 
 
-	public abstract static class AbstractDateAdder implements Adder<Date> {
+	public abstract static class AbstractAdder<T extends Serializable> implements Adder<T> {
 
 		@Override
-		public abstract void add(Date date);
+		public abstract void add(T item);
 	}
 
 
-	public static class DateAdder extends AbstractDateAdder {
+	public static class DateAdder extends AbstractAdder<Date> {
 
 		@Override
 		public void add(Date date) {

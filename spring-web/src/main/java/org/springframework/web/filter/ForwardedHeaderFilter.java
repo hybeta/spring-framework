@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,12 +34,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServletServerHttpRequest;
-import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.LinkedCaseInsensitiveMap;
 import org.springframework.util.StringUtils;
@@ -73,6 +73,7 @@ import org.springframework.web.util.WebUtils;
  * @author Eddú Meléndez
  * @author Rob Winch
  * @author Brian Clozel
+ * @author Mengqi Xu
  * @since 4.3
  * @see <a href="https://tools.ietf.org/html/rfc7239">https://tools.ietf.org/html/rfc7239</a>
  * @see <a href="https://docs.spring.io/spring-framework/reference/web/webmvc/filters.html#filters-forwarded-headers">Forwarded Headers</a>
@@ -218,8 +219,7 @@ public class ForwardedHeaderFilter extends OncePerRequestFilter {
 		// Override header accessors to not expose forwarded headers
 
 		@Override
-		@Nullable
-		public String getHeader(String name) {
+		public @Nullable String getHeader(String name) {
 			if (FORWARDED_HEADER_NAMES.contains(name)) {
 				return null;
 			}
@@ -246,18 +246,17 @@ public class ForwardedHeaderFilter extends OncePerRequestFilter {
 	 */
 	private static class ForwardedHeaderExtractingRequest extends ForwardedHeaderRemovingRequest {
 
-		@Nullable
-		private final String scheme;
+		private final @Nullable String scheme;
 
 		private final boolean secure;
 
-		@Nullable
-		private final String host;
+		private final @Nullable String host;
 
 		private final int port;
 
-		@Nullable
-		private final InetSocketAddress remoteAddress;
+		private final @Nullable InetSocketAddress remoteAddress;
+
+		private final @Nullable InetSocketAddress localAddress;
 
 		private final ForwardedPrefixExtractor forwardedPrefixExtractor;
 
@@ -276,6 +275,7 @@ public class ForwardedHeaderFilter extends OncePerRequestFilter {
 			this.port = (port == -1 ? (this.secure ? 443 : 80) : port);
 
 			this.remoteAddress = ForwardedHeaderUtils.parseForwardedFor(uri, headers, request.getRemoteAddress());
+			this.localAddress = ForwardedHeaderUtils.parseForwardedBy(uri, headers, request.getLocalAddress());
 
 			// Use Supplier as Tomcat updates delegate request on FORWARD
 			Supplier<HttpServletRequest> requestSupplier = () -> (HttpServletRequest) getRequest();
@@ -285,14 +285,12 @@ public class ForwardedHeaderFilter extends OncePerRequestFilter {
 		}
 
 		@Override
-		@Nullable
-		public String getScheme() {
+		public @Nullable String getScheme() {
 			return this.scheme;
 		}
 
 		@Override
-		@Nullable
-		public String getServerName() {
+		public @Nullable String getServerName() {
 			return this.host;
 		}
 
@@ -322,14 +320,12 @@ public class ForwardedHeaderFilter extends OncePerRequestFilter {
 		}
 
 		@Override
-		@Nullable
-		public String getRemoteHost() {
+		public @Nullable String getRemoteHost() {
 			return (this.remoteAddress != null ? this.remoteAddress.getHostString() : super.getRemoteHost());
 		}
 
 		@Override
-		@Nullable
-		public String getRemoteAddr() {
+		public @Nullable String getRemoteAddr() {
 			return (this.remoteAddress != null ? this.remoteAddress.getHostString() : super.getRemoteAddr());
 		}
 
@@ -338,10 +334,19 @@ public class ForwardedHeaderFilter extends OncePerRequestFilter {
 			return (this.remoteAddress != null ? this.remoteAddress.getPort() : super.getRemotePort());
 		}
 
+		@Override
+		public @Nullable String getLocalAddr() {
+			return (this.localAddress != null ? this.localAddress.getHostString() : super.getLocalAddr());
+		}
+
+		@Override
+		public int getLocalPort() {
+			return (this.localAddress != null ? this.localAddress.getPort() : super.getLocalPort());
+		}
+
 		@SuppressWarnings("DataFlowIssue")
 		@Override
-		@Nullable
-		public Object getAttribute(String name) {
+		public @Nullable Object getAttribute(String name) {
 			if (name.equals(WebUtils.ERROR_REQUEST_URI_ATTRIBUTE)) {
 				return this.forwardedPrefixExtractor.getErrorRequestUri();
 			}
@@ -363,11 +368,9 @@ public class ForwardedHeaderFilter extends OncePerRequestFilter {
 
 		private String actualRequestUri;
 
-		@Nullable
-		private final String forwardedPrefix;
+		private final @Nullable String forwardedPrefix;
 
-		@Nullable
-		private String requestUri;
+		private @Nullable String requestUri;
 
 		private String requestUrl;
 
@@ -389,8 +392,7 @@ public class ForwardedHeaderFilter extends OncePerRequestFilter {
 			this.requestUrl = initRequestUrl();
 		}
 
-		@Nullable
-		private static String initForwardedPrefix(HttpServletRequest request) {
+		private static @Nullable String initForwardedPrefix(HttpServletRequest request) {
 			String result = null;
 			Enumeration<String> names = request.getHeaderNames();
 			while (names.hasMoreElements()) {
@@ -414,8 +416,7 @@ public class ForwardedHeaderFilter extends OncePerRequestFilter {
 			return null;
 		}
 
-		@Nullable
-		private String initRequestUri() {
+		private @Nullable String initRequestUri() {
 			if (this.forwardedPrefix != null) {
 				return this.forwardedPrefix +
 						UrlPathHelper.rawPathInstance.getPathWithinApplication(this.delegate.get());
@@ -455,8 +456,7 @@ public class ForwardedHeaderFilter extends OncePerRequestFilter {
 			}
 		}
 
-		@Nullable
-		public String getErrorRequestUri() {
+		public @Nullable String getErrorRequestUri() {
 			HttpServletRequest request = this.delegate.get();
 			String requestUri = (String) request.getAttribute(WebUtils.ERROR_REQUEST_URI_ATTRIBUTE);
 			if (this.forwardedPrefix == null || requestUri == null) {

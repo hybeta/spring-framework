@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package org.springframework.util;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Extension of the {@code Map} interface that stores multiple values.
@@ -29,15 +29,14 @@ import org.springframework.lang.Nullable;
  * @param <K> the key type
  * @param <V> the value element type
  */
-public interface MultiValueMap<K, V> extends Map<K, List<V>> {
+public interface MultiValueMap<K, V extends @Nullable Object> extends Map<K, List<V>> {
 
 	/**
 	 * Return the first value for the given key.
 	 * @param key the key
 	 * @return the first value for the specified key, or {@code null} if none
 	 */
-	@Nullable
-	V getFirst(K key);
+	@Nullable V getFirst(K key);
 
 	/**
 	 * Add the given single value to the current list of values for the given key.
@@ -82,14 +81,14 @@ public interface MultiValueMap<K, V> extends Map<K, List<V>> {
 	void set(K key, @Nullable V value);
 
 	/**
-	 * Set the given values under.
-	 * @param values the values.
+	 * Set the given values in this {@code MultiValueMap}.
+	 * @param values the values
 	 */
 	void setAll(Map<K, V> values);
 
 	/**
 	 * Return a {@code Map} with the first values contained in this {@code MultiValueMap}.
-	 * The difference between this method and {@link #asSingleValueMap()} is
+	 * <p>The difference between this method and {@link #asSingleValueMap()} is
 	 * that this method returns a copy of the entries of this map, whereas
 	 * the latter returns a view.
 	 * @return a single value representation of this map

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,11 @@
 
 package org.springframework.beans.factory;
 
+import org.jspecify.annotations.Nullable;
+
 import org.springframework.beans.BeansException;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.ResolvableType;
-import org.springframework.lang.Nullable;
 
 /**
  * The root interface for accessing a Spring bean container.
@@ -124,8 +126,15 @@ public interface BeanFactory {
 	 * beans <i>created</i> by the FactoryBean. For example, if the bean named
 	 * {@code myJndiObject} is a FactoryBean, getting {@code &myJndiObject}
 	 * will return the factory, not the instance returned by the factory.
+	 * @see #FACTORY_BEAN_PREFIX_CHAR
 	 */
 	String FACTORY_BEAN_PREFIX = "&";
+
+	/**
+	 * Character variant of {@link #FACTORY_BEAN_PREFIX}.
+	 * @since 6.2.6
+	 */
+	char FACTORY_BEAN_PREFIX_CHAR = '&';
 
 
 	/**
@@ -182,7 +191,7 @@ public interface BeanFactory {
 	 * @throws BeansException if the bean could not be created
 	 * @since 2.5
 	 */
-	Object getBean(String name, Object... args) throws BeansException;
+	Object getBean(String name, @Nullable Object @Nullable ... args) throws BeansException;
 
 	/**
 	 * Return the bean instance that uniquely matches the given object type, if any.
@@ -220,7 +229,7 @@ public interface BeanFactory {
 	 * @throws BeansException if the bean could not be created
 	 * @since 4.1
 	 */
-	<T> T getBean(Class<T> requiredType, Object... args) throws BeansException;
+	<T> T getBean(Class<T> requiredType, @Nullable Object @Nullable ... args) throws BeansException;
 
 	/**
 	 * Return a provider for the specified bean, allowing for lazy on-demand retrieval
@@ -255,6 +264,22 @@ public interface BeanFactory {
 	 * @see ObjectProvider#orderedStream()
 	 */
 	<T> ObjectProvider<T> getBeanProvider(ResolvableType requiredType);
+
+	/**
+	 * Return a provider for the specified bean, allowing for lazy on-demand retrieval
+	 * of instances, including availability and uniqueness options. This variant allows
+	 * for specifying a generic type to match, similar to reflective injection points
+	 * with generic type declarations in method/constructor parameters.
+	 * <p>This is a variant of {@link #getBeanProvider(ResolvableType)} with a
+	 * captured generic type for type-safe retrieval, typically used inline:
+	 * {@code getBeanProvider(new ParameterizedTypeReference<>() {})} - and
+	 * effectively equivalent to {@code getBeanProvider(ResolvableType.forType(...))}.
+	 * @return a corresponding provider handle
+	 * @param requiredType a captured generic type that the bean must match
+	 * @since 7.0
+	 * @see #getBeanProvider(ResolvableType)
+	 */
+	<T> ObjectProvider<T> getBeanProvider(ParameterizedTypeReference<T> requiredType);
 
 	/**
 	 * Does this bean factory contain a bean definition or externally registered singleton
@@ -357,8 +382,7 @@ public interface BeanFactory {
 	 * @see #getBean
 	 * @see #isTypeMatch
 	 */
-	@Nullable
-	Class<?> getType(String name) throws NoSuchBeanDefinitionException;
+	@Nullable Class<?> getType(String name) throws NoSuchBeanDefinitionException;
 
 	/**
 	 * Determine the type of the bean with the given name. More specifically,
@@ -378,8 +402,7 @@ public interface BeanFactory {
 	 * @see #getBean
 	 * @see #isTypeMatch
 	 */
-	@Nullable
-	Class<?> getType(String name, boolean allowFactoryBeanInit) throws NoSuchBeanDefinitionException;
+	@Nullable Class<?> getType(String name, boolean allowFactoryBeanInit) throws NoSuchBeanDefinitionException;
 
 	/**
 	 * Return the aliases for the given bean name, if any.

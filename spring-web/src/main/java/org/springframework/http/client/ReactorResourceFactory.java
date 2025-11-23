@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import org.jspecify.annotations.Nullable;
 import reactor.netty.http.HttpResources;
 import reactor.netty.resources.ConnectionProvider;
 import reactor.netty.resources.LoopResources;
@@ -29,25 +30,26 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.SmartLifecycle;
-import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
  * Factory to manage Reactor Netty resources, i.e. {@link LoopResources} for
- * event loop threads, and {@link ConnectionProvider} for the connection pool,
+ * event loop threads and {@link ConnectionProvider} for the connection pool,
  * within the lifecycle of a Spring {@code ApplicationContext}.
  *
  * <p>This factory implements {@link SmartLifecycle} and is expected typically
  * to be declared as a Spring-managed bean.
  *
- * <p>Notice that after a {@link SmartLifecycle} stop/restart, new instances of
+ * <p>Note that after a {@link SmartLifecycle} stop/restart, new instances of
  * the configured {@link LoopResources} and {@link ConnectionProvider} are
- * created, so any references to those should be updated.
+ * created, so any references to those should be updated. However, this factory
+ * does not participate in {@linkplain #isPauseable() pause} scenarios.
  *
  * @author Rossen Stoyanchev
  * @author Brian Clozel
  * @author Sebastien Deleuze
  * @author Juergen Hoeller
+ * @author Sam Brannen
  * @since 6.1
  */
 public class ReactorResourceFactory
@@ -55,18 +57,15 @@ public class ReactorResourceFactory
 
 	private boolean useGlobalResources = true;
 
-	@Nullable
-	private Consumer<HttpResources> globalResourcesConsumer;
+	private @Nullable Consumer<HttpResources> globalResourcesConsumer;
 
 	private Supplier<ConnectionProvider> connectionProviderSupplier = () -> ConnectionProvider.create("webflux", 500);
 
-	@Nullable
-	private volatile ConnectionProvider connectionProvider;
+	private volatile @Nullable ConnectionProvider connectionProvider;
 
 	private Supplier<LoopResources> loopResourcesSupplier = () -> LoopResources.create("webflux-http");
 
-	@Nullable
-	private volatile LoopResources loopResources;
+	private volatile @Nullable LoopResources loopResources;
 
 	private boolean manageConnectionProvider = false;
 
@@ -76,8 +75,7 @@ public class ReactorResourceFactory
 
 	private Duration shutdownTimeout = Duration.ofSeconds(LoopResources.DEFAULT_SHUTDOWN_TIMEOUT);
 
-	@Nullable
-	private ApplicationContext applicationContext;
+	private @Nullable ApplicationContext applicationContext;
 
 	private volatile boolean running;
 
@@ -330,6 +328,16 @@ public class ReactorResourceFactory
 	@Override
 	public boolean isRunning() {
 		return this.running;
+	}
+
+	/**
+	 * Returns {@code false} to indicate that a {@code ReactorResourceFactory}
+	 * should be skipped in a pause scenario.
+	 * @since 7.0
+	 */
+	@Override
+	public boolean isPauseable() {
+		return false;
 	}
 
 	@Override

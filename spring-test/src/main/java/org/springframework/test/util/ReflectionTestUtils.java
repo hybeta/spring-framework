@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@ import java.lang.reflect.Method;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.aop.support.AopUtils;
-import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.MethodInvoker;
@@ -75,7 +75,7 @@ public abstract class ReflectionTestUtils {
 
 	private static final Log logger = LogFactory.getLog(ReflectionTestUtils.class);
 
-	private static final boolean springAopPresent = ClassUtils.isPresent(
+	private static final boolean SPRING_AOP_PRESENT = ClassUtils.isPresent(
 			"org.springframework.aop.framework.Advised", ReflectionTestUtils.class.getClassLoader());
 
 
@@ -173,14 +173,14 @@ public abstract class ReflectionTestUtils {
 	 * @see ReflectionUtils#setField(Field, Object, Object)
 	 * @see AopTestUtils#getUltimateTargetObject(Object)
 	 */
-	@SuppressWarnings("NullAway")
+	@SuppressWarnings("NullAway") // Dataflow analysis limitation
 	public static void setField(@Nullable Object targetObject, @Nullable Class<?> targetClass,
 			@Nullable String name, @Nullable Object value, @Nullable Class<?> type) {
 
 		Assert.isTrue(targetObject != null || targetClass != null,
 				"Either targetObject or targetClass for the field must be specified");
 
-		if (targetObject != null && springAopPresent) {
+		if (targetObject != null && SPRING_AOP_PRESENT) {
 			targetObject = AopTestUtils.getUltimateTargetObject(targetObject);
 		}
 		if (targetClass == null) {
@@ -214,8 +214,7 @@ public abstract class ReflectionTestUtils {
 	 * @return the field's current value
 	 * @see #getField(Class, String)
 	 */
-	@Nullable
-	public static Object getField(Object targetObject, String name) {
+	public static @Nullable Object getField(Object targetObject, String name) {
 		return getField(targetObject, null, name);
 	}
 
@@ -231,8 +230,7 @@ public abstract class ReflectionTestUtils {
 	 * @since 4.2
 	 * @see #getField(Object, String)
 	 */
-	@Nullable
-	public static Object getField(Class<?> targetClass, String name) {
+	public static @Nullable Object getField(Class<?> targetClass, String name) {
 		return getField(null, targetClass, name);
 	}
 
@@ -260,13 +258,12 @@ public abstract class ReflectionTestUtils {
 	 * @see ReflectionUtils#getField(Field, Object)
 	 * @see AopTestUtils#getUltimateTargetObject(Object)
 	 */
-	@Nullable
-	@SuppressWarnings("NullAway")
-	public static Object getField(@Nullable Object targetObject, @Nullable Class<?> targetClass, String name) {
+	@SuppressWarnings("NullAway") // Dataflow analysis limitation
+	public static @Nullable Object getField(@Nullable Object targetObject, @Nullable Class<?> targetClass, String name) {
 		Assert.isTrue(targetObject != null || targetClass != null,
 			"Either targetObject or targetClass for the field must be specified");
 
-		if (targetObject != null && springAopPresent) {
+		if (targetObject != null && SPRING_AOP_PRESENT) {
 			targetObject = AopTestUtils.getUltimateTargetObject(targetObject);
 		}
 		if (targetClass == null) {
@@ -355,7 +352,7 @@ public abstract class ReflectionTestUtils {
 					safeToString(target), value));
 		}
 
-		if (springAopPresent) {
+		if (SPRING_AOP_PRESENT) {
 			// If the target is a CGLIB proxy which does not intercept the method, invoke the
 			// method on the ultimate target.
 			if (isCglibProxyThatDoesNotInterceptMethod(target, method)) {
@@ -391,8 +388,7 @@ public abstract class ReflectionTestUtils {
 	 * @see ReflectionUtils#invokeMethod(Method, Object, Object[])
 	 * @see AopTestUtils#getUltimateTargetObject(Object)
 	 */
-	@Nullable
-	public static Object invokeGetterMethod(Object target, String name) {
+	public static @Nullable Object invokeGetterMethod(Object target, String name) {
 		Assert.notNull(target, "Target object must not be null");
 		Assert.hasText(name, "Method name must not be empty");
 
@@ -410,7 +406,7 @@ public abstract class ReflectionTestUtils {
 					"Could not find getter method '%s' on %s", getterMethodName, safeToString(target)));
 		}
 
-		if (springAopPresent) {
+		if (SPRING_AOP_PRESENT) {
 			// If the target is a CGLIB proxy which does not intercept the method, invoke the
 			// method on the ultimate target.
 			if (isCglibProxyThatDoesNotInterceptMethod(target, method)) {
@@ -437,8 +433,7 @@ public abstract class ReflectionTestUtils {
 	 * @see #invokeMethod(Class, String, Object...)
 	 * @see #invokeMethod(Object, Class, String, Object...)
 	 */
-	@Nullable
-	public static <T> T invokeMethod(Object target, String name, Object... args) {
+	public static <T> @Nullable T invokeMethod(Object target, String name, Object... args) {
 		Assert.notNull(target, "Target object must not be null");
 		return invokeMethod(target, null, name, args);
 	}
@@ -456,8 +451,7 @@ public abstract class ReflectionTestUtils {
 	 * @see #invokeMethod(Object, String, Object...)
 	 * @see #invokeMethod(Object, Class, String, Object...)
 	 */
-	@Nullable
-	public static <T> T invokeMethod(Class<?> targetClass, String name, Object... args) {
+	public static <T> @Nullable T invokeMethod(Class<?> targetClass, String name, Object... args) {
 		Assert.notNull(targetClass, "Target class must not be null");
 		return invokeMethod(null, targetClass, name, args);
 	}
@@ -489,8 +483,7 @@ public abstract class ReflectionTestUtils {
 	 * @see AopTestUtils#getUltimateTargetObject(Object)
 	 */
 	@SuppressWarnings("unchecked")
-	@Nullable
-	public static <T> T invokeMethod(@Nullable Object targetObject, @Nullable Class<?> targetClass, String name,
+	public static <T> @Nullable T invokeMethod(@Nullable Object targetObject, @Nullable Class<?> targetClass, String name,
 			Object... args) {
 
 		Assert.isTrue(targetObject != null || targetClass != null,
@@ -507,7 +500,7 @@ public abstract class ReflectionTestUtils {
 			methodInvoker.setArguments(args);
 			methodInvoker.prepare();
 
-			if (targetObject != null && springAopPresent) {
+			if (targetObject != null && SPRING_AOP_PRESENT) {
 				// If the target is a CGLIB proxy which does not intercept the method, invoke the
 				// method on the ultimate target.
 				if (isCglibProxyThatDoesNotInterceptMethod(targetObject, methodInvoker.getPreparedMethod())) {

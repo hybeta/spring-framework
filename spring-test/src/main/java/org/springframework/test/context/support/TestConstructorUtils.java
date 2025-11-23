@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,11 +23,11 @@ import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.SpringProperties;
 import org.springframework.core.annotation.AnnotatedElementUtils;
-import org.springframework.lang.Nullable;
 import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.TestConstructor.AutowireMode;
 import org.springframework.test.context.TestContextAnnotationUtils;
@@ -63,20 +63,12 @@ public abstract class TestConstructorUtils {
 		catch (ClassNotFoundException ex) {
 			// jakarta.inject API not available - simply skip.
 		}
-
-		try {
-			autowiredAnnotationTypes.add((Class<? extends Annotation>)
-					ClassUtils.forName("javax.inject.Inject", classLoader));
-			logger.trace("'javax.inject.Inject' annotation found and supported for autowiring");
-		}
-		catch (ClassNotFoundException ex) {
-			// javax.inject API not available - simply skip.
-		}
 	}
 
 
 	private TestConstructorUtils() {
 	}
+
 
 	/**
 	 * Determine if the supplied executable for the given test class is an
@@ -86,8 +78,11 @@ public abstract class TestConstructorUtils {
 	 * @param executable an executable for the test class
 	 * @param testClass the test class
 	 * @return {@code true} if the executable is an autowirable constructor
-	 * @see #isAutowirableConstructor(Executable, Class, PropertyProvider)
+	 * @see #isAutowirableConstructor(Executable, PropertyProvider)
+	 * @deprecated as of 6.2.13, in favor of {@link #isAutowirableConstructor(Executable, PropertyProvider)};
+	 * to be removed in Spring Framework 7.1
 	 */
+	@Deprecated(since = "6.2.13", forRemoval = true)
 	public static boolean isAutowirableConstructor(Executable executable, Class<?> testClass) {
 		return isAutowirableConstructor(executable, testClass, null);
 	}
@@ -101,7 +96,10 @@ public abstract class TestConstructorUtils {
 	 * @param testClass the test class
 	 * @return {@code true} if the constructor is autowirable
 	 * @see #isAutowirableConstructor(Constructor, Class, PropertyProvider)
+	 * @deprecated as of 6.2.13, in favor of {@link #isAutowirableConstructor(Executable, PropertyProvider)};
+	 * to be removed in Spring Framework 7.1
 	 */
+	@Deprecated(since = "6.2.13", forRemoval = true)
 	public static boolean isAutowirableConstructor(Constructor<?> constructor, Class<?> testClass) {
 		return isAutowirableConstructor(constructor, testClass, null);
 	}
@@ -119,7 +117,10 @@ public abstract class TestConstructorUtils {
 	 * @return {@code true} if the executable is an autowirable constructor
 	 * @since 5.3
 	 * @see #isAutowirableConstructor(Constructor, Class, PropertyProvider)
+	 * @deprecated as of 6.2.13, in favor of {@link #isAutowirableConstructor(Executable, PropertyProvider)};
+	 * to be removed in Spring Framework 7.1
 	 */
+	@Deprecated(since = "6.2.13", forRemoval = true)
 	public static boolean isAutowirableConstructor(Executable executable, Class<?> testClass,
 			@Nullable PropertyProvider fallbackPropertyProvider) {
 
@@ -135,9 +136,8 @@ public abstract class TestConstructorUtils {
 	 * conditions is {@code true}.
 	 *
 	 * <ol>
-	 * <li>The constructor is annotated with {@link Autowired @Autowired},
-	 * {@link jakarta.inject.Inject @jakarta.inject.Inject}, or
-	 * {@link javax.inject.Inject @javax.inject.Inject}.</li>
+	 * <li>The constructor is annotated with {@link Autowired @Autowired} or
+	 * {@link jakarta.inject.Inject @jakarta.inject.Inject}.</li>
 	 * <li>{@link TestConstructor @TestConstructor} is <em>present</em> or
 	 * <em>meta-present</em> on the test class with
 	 * {@link TestConstructor#autowireMode() autowireMode} set to
@@ -148,14 +148,59 @@ public abstract class TestConstructorUtils {
 	 * {@link TestConstructor#TEST_CONSTRUCTOR_AUTOWIRE_MODE_PROPERTY_NAME}).</li>
 	 * </ol>
 	 * @param constructor a constructor for the test class
-	 * @param testClass the test class
+	 * @param testClass the test class, typically the declaring class of the constructor
 	 * @param fallbackPropertyProvider fallback property provider used to look up
-	 * the value for the default <em>test constructor autowire mode</em> if no
-	 * such value is found in {@link SpringProperties}
+	 * the value for {@link TestConstructor#TEST_CONSTRUCTOR_AUTOWIRE_MODE_PROPERTY_NAME}
+	 * if no such value is found in {@link SpringProperties}; may be {@code null}
+	 * if there is no fallback support
 	 * @return {@code true} if the constructor is autowirable
 	 * @since 5.3
+	 * @see #isAutowirableConstructor(Executable, PropertyProvider)
+	 * @deprecated as of 6.2.13, in favor of {@link #isAutowirableConstructor(Executable, PropertyProvider)};
+	 * to be removed in Spring Framework 7.1
 	 */
+	@Deprecated(since = "6.2.13", forRemoval = true)
 	public static boolean isAutowirableConstructor(Constructor<?> constructor, Class<?> testClass,
+			@Nullable PropertyProvider fallbackPropertyProvider) {
+
+		return isAutowirableConstructorInternal(constructor, testClass, fallbackPropertyProvider);
+	}
+
+	/**
+	 * Determine if the supplied {@link Executable} is an autowirable {@link Constructor}.
+	 *
+	 * <p>A constructor is considered to be autowirable if one of the following
+	 * conditions is {@code true}.
+	 *
+	 * <ol>
+	 * <li>The constructor is annotated with {@link Autowired @Autowired} or
+	 * {@link jakarta.inject.Inject @jakarta.inject.Inject}.</li>
+	 * <li>{@link TestConstructor @TestConstructor} is <em>present</em> or
+	 * <em>meta-present</em> on the test class with
+	 * {@link TestConstructor#autowireMode() autowireMode} set to
+	 * {@link AutowireMode#ALL ALL}.</li>
+	 * <li>The default <em>test constructor autowire mode</em> has been set to
+	 * {@code ALL} in {@link SpringProperties} or in the supplied fallback
+	 * {@link PropertyProvider}.</li>
+	 * </ol>
+	 * @param executable an {@code Executable} for a test class
+	 * @param fallbackPropertyProvider fallback property provider used to look up
+	 * the value for {@value TestConstructor#TEST_CONSTRUCTOR_AUTOWIRE_MODE_PROPERTY_NAME}
+	 * if no such value is found in {@link SpringProperties}; may be {@code null}
+	 * if there is no fallback support
+	 * @return {@code true} if the executable is an autowirable constructor
+	 * @since 6.2.13
+	 * @see TestConstructor#TEST_CONSTRUCTOR_AUTOWIRE_MODE_PROPERTY_NAME
+	 */
+	public static boolean isAutowirableConstructor(Executable executable,
+			@Nullable PropertyProvider fallbackPropertyProvider) {
+
+		return (executable instanceof Constructor<?> constructor &&
+				isAutowirableConstructorInternal(constructor, constructor.getDeclaringClass(), fallbackPropertyProvider));
+	}
+
+
+	private static boolean isAutowirableConstructorInternal(Constructor<?> constructor, Class<?> testClass,
 			@Nullable PropertyProvider fallbackPropertyProvider) {
 
 		// Is the constructor annotated with @Autowired/@Inject?

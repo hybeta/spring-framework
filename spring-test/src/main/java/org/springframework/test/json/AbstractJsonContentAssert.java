@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.function.Consumer;
 
@@ -34,6 +33,7 @@ import org.assertj.core.api.Assertions;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.assertj.core.error.BasicErrorMessageFactory;
 import org.assertj.core.internal.Failures;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.core.ResolvableType;
 import org.springframework.core.io.ByteArrayResource;
@@ -41,12 +41,6 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpInputMessage;
-import org.springframework.http.MediaType;
-import org.springframework.lang.Nullable;
-import org.springframework.mock.http.MockHttpInputMessage;
-import org.springframework.test.http.HttpMessageContentConverter;
 import org.springframework.util.Assert;
 
 /**
@@ -77,14 +71,11 @@ public abstract class AbstractJsonContentAssert<SELF extends AbstractJsonContent
 	private static final Failures failures = Failures.instance();
 
 
-	@Nullable
-	private final HttpMessageContentConverter contentConverter;
+	private final @Nullable JsonConverterDelegate converterDelegate;
 
-	@Nullable
-	private Class<?> resourceLoadClass;
+	private @Nullable Class<?> resourceLoadClass;
 
-	@Nullable
-	private Charset charset;
+	private @Nullable Charset charset;
 
 	private JsonLoader jsonLoader;
 
@@ -95,7 +86,7 @@ public abstract class AbstractJsonContentAssert<SELF extends AbstractJsonContent
 	 */
 	protected AbstractJsonContentAssert(@Nullable JsonContent actual, Class<?> selfType) {
 		super(actual, selfType);
-		this.contentConverter = (actual != null ? actual.getContentConverter() : null);
+		this.converterDelegate = (actual != null ? actual.getJsonConverterDelegate() : null);
 		this.jsonLoader = new JsonLoader(null, null);
 		as("JSON content");
 	}
@@ -134,25 +125,18 @@ public abstract class AbstractJsonContentAssert<SELF extends AbstractJsonContent
 
 	private <T> T convertToTargetType(Type targetType) {
 		String json = this.actual.getJson();
-		if (this.contentConverter == null) {
+		if (this.converterDelegate == null) {
 			throw new IllegalStateException(
 					"No JSON message converter available to convert %s".formatted(json));
 		}
 		try {
-			return this.contentConverter.convert(fromJson(json), MediaType.APPLICATION_JSON,
-					ResolvableType.forType(targetType));
+			return this.converterDelegate.read(json, ResolvableType.forType(targetType));
 		}
 		catch (Exception ex) {
 			throw failure(new ValueProcessingFailed(json,
 					"To convert successfully to:%n  %s%nBut it failed:%n  %s%n".formatted(
 							targetType.getTypeName(), ex.getMessage())));
 		}
-	}
-
-	private HttpInputMessage fromJson(String json) {
-		MockHttpInputMessage inputMessage = new MockHttpInputMessage(json.getBytes(StandardCharsets.UTF_8));
-		inputMessage.getHeaders().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
-		return inputMessage;
 	}
 
 
@@ -166,7 +150,7 @@ public abstract class AbstractJsonContentAssert<SELF extends AbstractJsonContent
 	 */
 	public JsonPathValueAssert extractingPath(String path) {
 		Object value = new JsonPathValue(path).getValue();
-		return new JsonPathValueAssert(value, path, this.contentConverter);
+		return new JsonPathValueAssert(value, path, this.converterDelegate);
 	}
 
 	/**
@@ -177,7 +161,7 @@ public abstract class AbstractJsonContentAssert<SELF extends AbstractJsonContent
 	 */
 	public SELF hasPathSatisfying(String path, Consumer<AssertProvider<JsonPathValueAssert>> valueRequirements) {
 		Object value = new JsonPathValue(path).assertHasPath();
-		JsonPathValueAssert valueAssert = new JsonPathValueAssert(value, path, this.contentConverter);
+		JsonPathValueAssert valueAssert = new JsonPathValueAssert(value, path, this.converterDelegate);
 		valueRequirements.accept(() -> valueAssert);
 		return this.myself;
 	}
@@ -488,12 +472,11 @@ public abstract class AbstractJsonContentAssert<SELF extends AbstractJsonContent
 		return this.myself;
 	}
 
-	@Nullable
-	private String toJsonString() {
+	private @Nullable String toJsonString() {
 		return (this.actual != null ? this.actual.getJson() : null);
 	}
 
-	@SuppressWarnings("NullAway")
+	@SuppressWarnings("NullAway") // Dataflow analysis limitation
 	private String toNonNullJsonString() {
 		String jsonString = toJsonString();
 		Assertions.assertThat(jsonString).as("JSON content").isNotNull();
@@ -546,8 +529,7 @@ public abstract class AbstractJsonContentAssert<SELF extends AbstractJsonContent
 			this.jsonPath = JsonPath.compile(this.path);
 		}
 
-		@Nullable
-		Object assertHasPath() {
+		@Nullable Object assertHasPath() {
 			return getValue();
 		}
 
@@ -560,8 +542,7 @@ public abstract class AbstractJsonContentAssert<SELF extends AbstractJsonContent
 			}
 		}
 
-		@Nullable
-		Object getValue() {
+		@Nullable Object getValue() {
 			try {
 				return read();
 			}
@@ -570,8 +551,7 @@ public abstract class AbstractJsonContentAssert<SELF extends AbstractJsonContent
 			}
 		}
 
-		@Nullable
-		private Object read() {
+		private @Nullable Object read() {
 			return this.jsonPath.read(this.json);
 		}
 

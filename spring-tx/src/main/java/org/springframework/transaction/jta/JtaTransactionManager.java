@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ package org.springframework.transaction.jta;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Properties;
 
@@ -35,10 +37,10 @@ import jakarta.transaction.Transaction;
 import jakarta.transaction.TransactionManager;
 import jakarta.transaction.TransactionSynchronizationRegistry;
 import jakarta.transaction.UserTransaction;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.jndi.JndiTemplate;
-import org.springframework.lang.Nullable;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.transaction.HeuristicCompletionException;
 import org.springframework.transaction.IllegalTransactionStateException;
@@ -52,6 +54,8 @@ import org.springframework.transaction.support.AbstractPlatformTransactionManage
 import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
+import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
 
 /**
@@ -139,13 +143,15 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 			"java:comp/TransactionSynchronizationRegistry";
 
 
+	// JTA 2.1 UserTransaction#setReadOnly(boolean) method available?
+	private static final @Nullable Method setReadOnlyMethod =
+			ClassUtils.getMethodIfAvailable(UserTransaction.class, "setReadOnly", boolean.class);
+
 	private transient JndiTemplate jndiTemplate = new JndiTemplate();
 
-	@Nullable
-	private transient UserTransaction userTransaction;
+	private transient @Nullable UserTransaction userTransaction;
 
-	@Nullable
-	private String userTransactionName;
+	private @Nullable String userTransactionName;
 
 	private boolean autodetectUserTransaction = true;
 
@@ -153,19 +159,15 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 
 	private boolean userTransactionObtainedFromJndi = false;
 
-	@Nullable
-	private transient TransactionManager transactionManager;
+	private transient @Nullable TransactionManager transactionManager;
 
-	@Nullable
-	private String transactionManagerName;
+	private @Nullable String transactionManagerName;
 
 	private boolean autodetectTransactionManager = true;
 
-	@Nullable
-	private transient TransactionSynchronizationRegistry transactionSynchronizationRegistry;
+	private transient @Nullable TransactionSynchronizationRegistry transactionSynchronizationRegistry;
 
-	@Nullable
-	private String transactionSynchronizationRegistryName;
+	private @Nullable String transactionSynchronizationRegistryName;
 
 	private boolean autodetectTransactionSynchronizationRegistry = true;
 
@@ -248,8 +250,7 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 	/**
 	 * Return the JNDI environment to use for JNDI lookups.
 	 */
-	@Nullable
-	public Properties getJndiEnvironment() {
+	public @Nullable Properties getJndiEnvironment() {
 		return this.jndiTemplate.getEnvironment();
 	}
 
@@ -268,8 +269,7 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 	/**
 	 * Return the JTA UserTransaction that this transaction manager uses.
 	 */
-	@Nullable
-	public UserTransaction getUserTransaction() {
+	public @Nullable UserTransaction getUserTransaction() {
 		return this.userTransaction;
 	}
 
@@ -332,8 +332,7 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 	/**
 	 * Return the JTA TransactionManager that this transaction manager uses, if any.
 	 */
-	@Nullable
-	public TransactionManager getTransactionManager() {
+	public @Nullable TransactionManager getTransactionManager() {
 		return this.transactionManager;
 	}
 
@@ -385,8 +384,7 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 	/**
 	 * Return the JTA 1.1 TransactionSynchronizationRegistry that this transaction manager uses, if any.
 	 */
-	@Nullable
-	public TransactionSynchronizationRegistry getTransactionSynchronizationRegistry() {
+	public @Nullable TransactionSynchronizationRegistry getTransactionSynchronizationRegistry() {
 		return this.transactionSynchronizationRegistry;
 	}
 
@@ -635,8 +633,7 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 	 * @see #setUserTransaction
 	 * @see #setUserTransactionName
 	 */
-	@Nullable
-	protected UserTransaction retrieveUserTransaction() throws TransactionSystemException {
+	protected @Nullable UserTransaction retrieveUserTransaction() throws TransactionSystemException {
 		return null;
 	}
 
@@ -649,8 +646,7 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 	 * @see #setTransactionManager
 	 * @see #setTransactionManagerName
 	 */
-	@Nullable
-	protected TransactionManager retrieveTransactionManager() throws TransactionSystemException {
+	protected @Nullable TransactionManager retrieveTransactionManager() throws TransactionSystemException {
 		return null;
 	}
 
@@ -662,8 +658,7 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 	 * or {@code null} if none found
 	 * @throws TransactionSystemException in case of errors
 	 */
-	@Nullable
-	protected TransactionSynchronizationRegistry retrieveTransactionSynchronizationRegistry() throws TransactionSystemException {
+	protected @Nullable TransactionSynchronizationRegistry retrieveTransactionSynchronizationRegistry() throws TransactionSystemException {
 		return null;
 	}
 
@@ -673,8 +668,7 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 	 * @return the JTA UserTransaction reference, or {@code null} if not found
 	 * @see #DEFAULT_USER_TRANSACTION_NAME
 	 */
-	@Nullable
-	protected UserTransaction findUserTransaction() {
+	protected @Nullable UserTransaction findUserTransaction() {
 		String jndiName = DEFAULT_USER_TRANSACTION_NAME;
 		try {
 			UserTransaction ut = getJndiTemplate().lookup(jndiName, UserTransaction.class);
@@ -700,8 +694,7 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 	 * @return the JTA TransactionManager reference, or {@code null} if not found
 	 * @see #FALLBACK_TRANSACTION_MANAGER_NAMES
 	 */
-	@Nullable
-	protected TransactionManager findTransactionManager(@Nullable UserTransaction ut) {
+	protected @Nullable TransactionManager findTransactionManager(@Nullable UserTransaction ut) {
 		if (ut instanceof TransactionManager tm) {
 			if (logger.isDebugEnabled()) {
 				logger.debug("JTA UserTransaction object [" + ut + "] implements TransactionManager");
@@ -740,8 +733,7 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 	 * or {@code null} if none found
 	 * @throws TransactionSystemException in case of errors
 	 */
-	@Nullable
-	protected TransactionSynchronizationRegistry findTransactionSynchronizationRegistry(
+	protected @Nullable TransactionSynchronizationRegistry findTransactionSynchronizationRegistry(
 			@Nullable UserTransaction ut, @Nullable TransactionManager tm) throws TransactionSystemException {
 
 		if (this.userTransactionObtainedFromJndi) {
@@ -874,6 +866,12 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 		applyIsolationLevel(txObject, definition.getIsolationLevel());
 		int timeout = determineTimeout(definition);
 		applyTimeout(txObject, timeout);
+
+		if (definition.isReadOnly()) {
+			setReadOnlyIfPossible(txObject.getUserTransaction(), true);
+			txObject.resetReadOnly = true;
+		}
+
 		txObject.getUserTransaction().begin();
 	}
 
@@ -916,6 +914,21 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 			txObject.getUserTransaction().setTransactionTimeout(timeout);
 			if (timeout > 0) {
 				txObject.resetTransactionTimeout = true;
+			}
+		}
+	}
+
+	private void setReadOnlyIfPossible(UserTransaction ut, boolean readOnly) throws SystemException {
+		if (setReadOnlyMethod != null) {
+			try {
+				setReadOnlyMethod.invoke(ut, readOnly);
+			}
+			catch (Exception ex) {
+				if (ex instanceof InvocationTargetException ute &&
+						ute.getTargetException() instanceof SystemException se) {
+					throw se;
+				}
+				ReflectionUtils.handleReflectionException(ex);
 			}
 		}
 	}
@@ -1177,6 +1190,14 @@ public class JtaTransactionManager extends AbstractPlatformTransactionManager
 	@Override
 	protected void doCleanupAfterCompletion(Object transaction) {
 		JtaTransactionObject txObject = (JtaTransactionObject) transaction;
+		if (txObject.resetReadOnly) {
+			try {
+				setReadOnlyIfPossible(txObject.getUserTransaction(), false);
+			}
+			catch (SystemException ex) {
+				logger.debug("Failed to reset read-only flag after after JTA completion", ex);
+			}
+		}
 		if (txObject.resetTransactionTimeout) {
 			try {
 				txObject.getUserTransaction().setTransactionTimeout(0);

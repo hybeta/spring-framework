@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.aop.framework.AopInfrastructureBean;
 import org.springframework.aop.framework.AopProxyUtils;
@@ -61,7 +62,6 @@ import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.format.annotation.DurationFormat;
 import org.springframework.format.datetime.standard.DurationFormatterUtils;
-import org.springframework.lang.Nullable;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.Trigger;
 import org.springframework.scheduling.config.CronTask;
@@ -127,30 +127,24 @@ public class ScheduledAnnotationBeanPostProcessor
 	/**
 	 * Reactive Streams API present on the classpath?
 	 */
-	private static final boolean reactiveStreamsPresent = ClassUtils.isPresent(
+	private static final boolean REACTIVE_STREAMS_PRESENT = ClassUtils.isPresent(
 			"org.reactivestreams.Publisher", ScheduledAnnotationBeanPostProcessor.class.getClassLoader());
 
 	protected final Log logger = LogFactory.getLog(getClass());
 
 	private final ScheduledTaskRegistrar registrar;
 
-	@Nullable
-	private Object scheduler;
+	private @Nullable Object scheduler;
 
-	@Nullable
-	private StringValueResolver embeddedValueResolver;
+	private @Nullable StringValueResolver embeddedValueResolver;
 
-	@Nullable
-	private String beanName;
+	private @Nullable String beanName;
 
-	@Nullable
-	private BeanFactory beanFactory;
+	private @Nullable BeanFactory beanFactory;
 
-	@Nullable
-	private ApplicationContext applicationContext;
+	private @Nullable ApplicationContext applicationContext;
 
-	@Nullable
-	private TaskSchedulerRouter localScheduler;
+	private @Nullable TaskSchedulerRouter localScheduler;
 
 	private final Set<Class<?>> nonAnnotatedClasses = ConcurrentHashMap.newKeySet(64);
 
@@ -336,7 +330,7 @@ public class ScheduledAnnotationBeanPostProcessor
 	protected void processScheduled(Scheduled scheduled, Method method, Object bean) {
 		// Is the method a Kotlin suspending function? Throws if true and the reactor bridge isn't on the classpath.
 		// Does the method return a reactive type? Throws if true and it isn't a deferred Publisher type.
-		if (reactiveStreamsPresent && ScheduledAnnotationReactiveSupport.isReactive(method)) {
+		if (REACTIVE_STREAMS_PRESENT && ScheduledAnnotationReactiveSupport.isReactive(method)) {
 			processScheduledAsync(scheduled, method, bean);
 			return;
 		}
@@ -554,24 +548,8 @@ public class ScheduledAnnotationBeanPostProcessor
 	 * @deprecated in favor of {@link #createRunnable(Object, Method, String)}
 	 */
 	@Deprecated(since = "6.1")
-	@Nullable
-	protected Runnable createRunnable(Object target, Method method) {
+	protected @Nullable Runnable createRunnable(Object target, Method method) {
 		return null;
-	}
-
-	private static Duration toDuration(long value, TimeUnit timeUnit) {
-		try {
-			return Duration.of(value, timeUnit.toChronoUnit());
-		}
-		catch (Exception ex) {
-			throw new IllegalArgumentException(
-					"Unsupported unit " + timeUnit + " for value \"" + value + "\": " + ex.getMessage());
-		}
-	}
-
-	private static Duration toDuration(String value, TimeUnit timeUnit) {
-		DurationFormat.Unit unit = DurationFormat.Unit.fromChronoUnit(timeUnit.toChronoUnit());
-		return DurationFormatterUtils.detectAndParse(value, unit); // interpreting as long as fallback already
 	}
 
 	/**
@@ -674,6 +652,16 @@ public class ScheduledAnnotationBeanPostProcessor
 				this.manualCancellationOnContextClose.clear();
 			}
 		}
+	}
+
+
+	private static Duration toDuration(long value, TimeUnit timeUnit) {
+		return Duration.of(value, timeUnit.toChronoUnit());
+	}
+
+	private static Duration toDuration(String value, TimeUnit timeUnit) {
+		DurationFormat.Unit unit = DurationFormat.Unit.fromChronoUnit(timeUnit.toChronoUnit());
+		return DurationFormatterUtils.detectAndParse(value, unit);
 	}
 
 }

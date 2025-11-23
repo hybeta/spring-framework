@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,11 @@ package org.springframework.orm.jpa;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.hibernate.query.CommonQueryContract;
+import org.hibernate.query.SelectionQuery;
+import org.hibernate.query.hql.spi.SqmQueryImplementor;
+import org.hibernate.query.spi.DomainQueryExecutionContext;
+import org.hibernate.query.sqm.spi.InterpretationsKeySource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -60,7 +65,17 @@ class EntityManagerRuntimeHintsTests {
 
 	@Test
 	void entityManagerFactoryHasReflectionHints() {
-		assertThat(RuntimeHintsPredicates.reflection().onMethod(EntityManagerFactory.class, "getCriteriaBuilder")).accepts(this.hints);
-		assertThat(RuntimeHintsPredicates.reflection().onMethod(EntityManagerFactory.class, "getMetamodel")).accepts(this.hints);
+		assertThat(RuntimeHintsPredicates.reflection().onMethodInvocation(EntityManagerFactory.class, "getCriteriaBuilder")).accepts(this.hints);
+		assertThat(RuntimeHintsPredicates.reflection().onMethodInvocation(EntityManagerFactory.class, "getMetamodel")).accepts(this.hints);
+	}
+
+	@Test
+	void sqmQueryHints() {
+		assertThat(RuntimeHintsPredicates.proxies().forInterfaces(
+				SqmQueryImplementor.class,
+				InterpretationsKeySource.class,
+				DomainQueryExecutionContext.class,
+				SelectionQuery.class,
+				CommonQueryContract.class)).accepts(this.hints);
 	}
 }

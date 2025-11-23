@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,9 @@
 
 package org.springframework.test.web.servlet.assertj;
 
-import org.springframework.lang.Nullable;
-import org.springframework.test.http.HttpMessageContentConverter;
+import org.jspecify.annotations.Nullable;
+
+import org.springframework.test.json.JsonConverterDelegate;
 import org.springframework.test.web.servlet.MvcResult;
 
 /**
@@ -28,22 +29,19 @@ import org.springframework.test.web.servlet.MvcResult;
  */
 final class DefaultMvcTestResult implements MvcTestResult {
 
-	@Nullable
-	private final MvcResult mvcResult;
+	private final @Nullable MvcResult mvcResult;
 
-	@Nullable
-	private final Exception unresolvedException;
+	private final @Nullable Exception unresolvedException;
 
-	@Nullable
-	private final HttpMessageContentConverter contentConverter;
+	private final @Nullable JsonConverterDelegate converterDelegate;
 
 
 	DefaultMvcTestResult(@Nullable MvcResult mvcResult, @Nullable Exception unresolvedException,
-			@Nullable HttpMessageContentConverter contentConverter) {
+			@Nullable JsonConverterDelegate converterDelegate) {
 
 		this.mvcResult = mvcResult;
 		this.unresolvedException = unresolvedException;
-		this.contentConverter = contentConverter;
+		this.converterDelegate = converterDelegate;
 	}
 
 
@@ -57,13 +55,11 @@ final class DefaultMvcTestResult implements MvcTestResult {
 	}
 
 	@Override
-	@Nullable
-	public Exception getUnresolvedException() {
+	public @Nullable Exception getUnresolvedException() {
 		return this.unresolvedException;
 	}
 
-	@Nullable
-	public Exception getResolvedException() {
+	public @Nullable Exception getResolvedException() {
 		return getMvcResult().getResolvedException();
 	}
 
@@ -74,7 +70,7 @@ final class DefaultMvcTestResult implements MvcTestResult {
 	 */
 	@Override
 	public MvcTestResultAssert assertThat() {
-		return new MvcTestResultAssert(this, this.contentConverter);
+		return new MvcTestResultAssert(this, this.converterDelegate);
 	}
 
 }

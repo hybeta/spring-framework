@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,15 +20,22 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import org.springframework.beans.factory.BeanCreationException;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.stereotype.Component;
 import org.springframework.test.context.bean.override.BeanOverrideContextCustomizerTestUtils;
 
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 
 /**
  * Tests for {@link MockitoSpyBean @MockitoSpyBean}.
  *
  * @author Stephane Nicoll
+ * @author Sam Brannen
  */
 class MockitoSpyBeanConfigurationErrorTests {
 
@@ -40,10 +47,11 @@ class MockitoSpyBeanConfigurationErrorTests {
 		assertThatIllegalStateException()
 				.isThrownBy(context::refresh)
 				.withMessage("""
-						Unable to override bean by wrapping: \
-						there is no existing bean with name [beanToSpy] and type [%s].""",
-						String.class.getName());
-	}
+						Unable to wrap bean: there is no bean with name 'beanToSpy' and \
+						type java.lang.String (as required by field 'ByNameSingleLookup.example'). \
+						If the bean is defined in a @Bean method, make sure the return type is the most \
+						specific type possible (for example, the concrete implementation type).""");
+		}
 
 	@Test
 	void contextCustomizerCannotBeCreatedWithNoSuchBeanType() {
@@ -52,9 +60,10 @@ class MockitoSpyBeanConfigurationErrorTests {
 		assertThatIllegalStateException()
 				.isThrownBy(context::refresh)
 				.withMessage("""
-						Unable to select a bean to override by wrapping: found 0 bean instances of \
-						type %s (as required by annotated field '%s.example')""",
-						String.class.getName(), ByTypeSingleLookup.class.getSimpleName());
+						Unable to select a bean to wrap: there are no beans of type java.lang.String \
+						(as required by field 'ByTypeSingleLookup.example'). \
+						If the bean is defined in a @Bean method, make sure the return type is the most \
+						specific type possible (for example, the concrete implementation type).""");
 	}
 
 	@Test
@@ -66,9 +75,42 @@ class MockitoSpyBeanConfigurationErrorTests {
 		assertThatIllegalStateException()
 				.isThrownBy(context::refresh)
 				.withMessage("""
-						Unable to select a bean to override by wrapping: found 2 bean instances \
-						of type %s (as required by annotated field '%s.example'): %s""",
-						String.class.getName(), ByTypeSingleLookup.class.getSimpleName(), List.of("bean1", "bean2"));
+						Unable to select a bean to wrap: found 2 beans of type java.lang.String \
+						(as required by field 'ByTypeSingleLookup.example'): %s""",
+						List.of("bean1", "bean2"));
+	}
+
+	@Test  // gh-35722
+	void mockitoSpyBeanCannotSpyOnScopedProxy() {
+		var context = new AnnotationConfigApplicationContext();
+		context.register(MyScopedProxy.class);
+		BeanOverrideContextCustomizerTestUtils.customizeApplicationContext(ScopedProxyTestCase.class, context);
+		context.refresh();
+
+		assertThatExceptionOfType(BeanCreationException.class)
+				.isThrownBy(() -> context.getBean(MyScopedProxy.class))
+				.havingRootCause()
+					.isInstanceOf(IllegalStateException.class)
+					.withMessage("""
+						@MockitoSpyBean cannot be applied to bean 'myScopedProxy', because it is a \
+						Spring AOP proxy with a non-static TargetSource. Perhaps you have attempted \
+						to spy on a scoped proxy, which is not supported.""");
+	}
+
+	@Test  // gh-35722
+	void mockitoSpyBeanCannotSpyOnSelfInjectionScopedProxy() {
+		var context = new AnnotationConfigApplicationContext();
+		context.register(MySelfInjectionScopedProxy.class);
+		BeanOverrideContextCustomizerTestUtils.customizeApplicationContext(SelfInjectionScopedProxyTestCase.class, context);
+
+		assertThatExceptionOfType(BeanCreationException.class)
+				.isThrownBy(context::refresh)
+				.havingRootCause()
+					.isInstanceOf(IllegalStateException.class)
+					.withMessage("""
+						@MockitoSpyBean cannot be applied to bean 'mySelfInjectionScopedProxy', because it \
+						is a Spring AOP proxy with a non-static TargetSource. Perhaps you have attempted \
+						to spy on a scoped proxy, which is not supported.""");
 	}
 
 
@@ -84,6 +126,33 @@ class MockitoSpyBeanConfigurationErrorTests {
 		@MockitoSpyBean("beanToSpy")
 		String example;
 
+	}
+
+	static class ScopedProxyTestCase {
+
+		@MockitoSpyBean
+		MyScopedProxy myScopedProxy;
+
+	}
+
+	static class SelfInjectionScopedProxyTestCase {
+
+		@MockitoSpyBean
+		MySelfInjectionScopedProxy mySelfInjectionScopedProxy;
+
+	}
+
+	@Component("myScopedProxy")
+	@Scope(proxyMode = ScopedProxyMode.TARGET_CLASS)
+	static class MyScopedProxy {
+	}
+
+	@Component("mySelfInjectionScopedProxy")
+	@Scope(proxyMode = ScopedProxyMode.TARGET_CLASS)
+	static class MySelfInjectionScopedProxy {
+
+		MySelfInjectionScopedProxy(MySelfInjectionScopedProxy self) {
+		}
 	}
 
 }

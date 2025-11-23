@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,20 +21,20 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicReference;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import org.jspecify.annotations.Nullable;
 import org.reactivestreams.FlowAdapters;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.netty.NettyOutbound;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.http.client.HttpClientRequest;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.lang.Nullable;
 import org.springframework.util.StreamUtils;
 
 /**
@@ -43,6 +43,7 @@ import org.springframework.util.StreamUtils;
  *
  * @author Arjen Poutsma
  * @author Juergen Hoeller
+ * @author Brian Clozel
  * @since 6.1
  */
 final class ReactorClientHttpRequest extends AbstractStreamingClientHttpRequest {
@@ -53,8 +54,9 @@ final class ReactorClientHttpRequest extends AbstractStreamingClientHttpRequest 
 
 	private final URI uri;
 
-	@Nullable
-	private final Duration exchangeTimeout;
+	private final Executor executor;
+
+	private final @Nullable Duration exchangeTimeout;
 
 
 	/**
@@ -65,37 +67,31 @@ final class ReactorClientHttpRequest extends AbstractStreamingClientHttpRequest 
 	 * @since 6.2
 	 */
 	public ReactorClientHttpRequest(HttpClient httpClient, HttpMethod method, URI uri) {
-		this.httpClient = httpClient;
-		this.method = method;
-		this.uri = uri;
-		this.exchangeTimeout = null;
+		this(httpClient, method, uri, null);
+	}
+
+	/**
+	 * Create an instance.
+	 * <p>If no executor is provided, the request will use an {@link Schedulers#boundedElastic() elastic scheduler}
+	 * for performing blocking I/O operations.
+	 * @param httpClient the client to perform the request with
+	 * @param executor the executor to use
+	 * @param method the HTTP method
+	 * @param uri the URI for the request
+	 * @since 6.2.13
+	 */
+	public ReactorClientHttpRequest(HttpClient httpClient, HttpMethod method, URI uri, @Nullable Executor executor) {
+		this(httpClient, method, uri, executor, null);
 	}
 
 	/**
 	 * Package private constructor for use until exchangeTimeout is removed.
 	 */
-	ReactorClientHttpRequest(HttpClient httpClient, HttpMethod method, URI uri, @Nullable Duration exchangeTimeout) {
+	ReactorClientHttpRequest(HttpClient httpClient, HttpMethod method, URI uri, @Nullable Executor executor, @Nullable Duration exchangeTimeout) {
 		this.httpClient = httpClient;
 		this.method = method;
 		this.uri = uri;
-		this.exchangeTimeout = exchangeTimeout;
-	}
-
-	/**
-	 * Original constructor with timeout values.
-	 * @deprecated without a replacement; readTimeout is now applied to the
-	 * underlying client via {@link HttpClient#responseTimeout(Duration)}, and the
-	 * value passed here is not used; exchangeTimeout is deprecated and superseded
-	 * by Reactor Netty timeout configuration, but applied if set.
-	 */
-	@Deprecated(since = "6.2", forRemoval = true)
-	public ReactorClientHttpRequest(
-			HttpClient httpClient, URI uri, HttpMethod method,
-			@Nullable Duration exchangeTimeout, @Nullable Duration readTimeout) {
-
-		this.httpClient = httpClient;
-		this.method = method;
-		this.uri = uri;
+		this.executor = (executor != null) ? executor : Schedulers.boundedElastic()::schedule;
 		this.exchangeTimeout = exchangeTimeout;
 	}
 
@@ -145,16 +141,15 @@ final class ReactorClientHttpRequest extends AbstractStreamingClientHttpRequest 
 		headers.forEach((key, value) -> request.requestHeaders().set(key, value));
 
 		if (body == null) {
-			return outbound;
+			// NettyOutbound#subscribe calls then() and that expects a body
+			// Use empty Mono instead for a more optimal send
+			return Mono.empty();
 		}
 
-		AtomicReference<Executor> executorRef = new AtomicReference<>();
-
 		return outbound
-				.withConnection(connection -> executorRef.set(connection.channel().eventLoop()))
 				.send(FlowAdapters.toPublisher(new OutputStreamPublisher<>(
 						os -> body.writeTo(StreamUtils.nonClosing(os)), new ByteBufMapper(outbound),
-						executorRef.getAndSet(null), null)));
+						this.executor, null)));
 	}
 
 	static IOException convertException(RuntimeException ex) {

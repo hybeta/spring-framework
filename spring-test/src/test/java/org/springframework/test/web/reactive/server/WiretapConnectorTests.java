@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ public class WiretapConnectorTests {
 		ClientRequest clientRequest = ClientRequest.create(HttpMethod.GET, URI.create("/test"))
 				.header(WebTestClient.WEBTESTCLIENT_REQUEST_ID, "1").build();
 
-		WiretapConnector wiretapConnector = new WiretapConnector(connector);
+		WiretapConnector wiretapConnector = new WiretapConnector(connector, null);
 		ExchangeFunction function = ExchangeFunctions.create(wiretapConnector);
 		function.exchange(clientRequest).block(ofMillis(0));
 

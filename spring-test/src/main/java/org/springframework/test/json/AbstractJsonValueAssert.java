@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2024 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,11 +31,10 @@ import org.assertj.core.api.InstanceOfAssertFactories;
 import org.assertj.core.api.ObjectArrayAssert;
 import org.assertj.core.error.BasicErrorMessageFactory;
 import org.assertj.core.internal.Failures;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.core.ResolvableType;
 import org.springframework.http.converter.GenericHttpMessageConverter;
-import org.springframework.lang.Nullable;
-import org.springframework.test.http.HttpMessageContentConverter;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
@@ -64,15 +63,23 @@ public abstract class AbstractJsonValueAssert<SELF extends AbstractJsonValueAsse
 
 	private final Failures failures = Failures.instance();
 
-	@Nullable
-	private final HttpMessageContentConverter contentConverter;
+	private final @Nullable JsonConverterDelegate converterDelegate;
 
 
-	protected AbstractJsonValueAssert(@Nullable Object actual, Class<?> selfType,
-			@Nullable HttpMessageContentConverter contentConverter) {
+	protected AbstractJsonValueAssert(
+			@Nullable Object actual, Class<?> selfType, @Nullable JsonConverterDelegate converter) {
 
 		super(actual, selfType);
-		this.contentConverter = contentConverter;
+		this.converterDelegate = converter;
+	}
+
+	@SuppressWarnings("removal")
+	@Deprecated(since = "7.0", forRemoval = true)
+	protected AbstractJsonValueAssert(
+			@Nullable Object actual, Class<?> selfType,
+			org.springframework.test.http.@Nullable HttpMessageContentConverter converter) {
+
+		this(actual, selfType, (JsonConverterDelegate) converter);
 	}
 
 
@@ -197,12 +204,12 @@ public abstract class AbstractJsonValueAssert<SELF extends AbstractJsonValueAsse
 	}
 
 	private <T> T convertToTargetType(Type targetType) {
-		if (this.contentConverter == null) {
+		if (this.converterDelegate == null) {
 			throw new IllegalStateException(
 					"No JSON message converter available to convert %s".formatted(actualToString()));
 		}
 		try {
-			return this.contentConverter.convertViaJson(this.actual, ResolvableType.forType(targetType));
+			return this.converterDelegate.map(this.actual, ResolvableType.forType(targetType));
 		}
 		catch (Exception ex) {
 			throw valueProcessingFailed("To convert successfully to:%n  %s%nBut it failed:%n  %s%n"

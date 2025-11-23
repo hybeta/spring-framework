@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ import org.apache.commons.logging.LogFactory;
 import org.eclipse.jetty.util.BufferUtil;
 import org.eclipse.jetty.websocket.api.Callback;
 import org.eclipse.jetty.websocket.api.Session;
+import org.jspecify.annotations.Nullable;
 
-import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
@@ -47,8 +47,7 @@ public class JettyWebSocketHandlerAdapter implements Session.Listener {
 
 	private final JettyWebSocketSession wsSession;
 
-	@Nullable
-	private Session nativeSession;
+	private @Nullable Session nativeSession;
 
 
 	public JettyWebSocketHandlerAdapter(WebSocketHandler webSocketHandler, JettyWebSocketSession wsSession) {
@@ -58,6 +57,7 @@ public class JettyWebSocketHandlerAdapter implements Session.Listener {
 		this.wsSession = wsSession;
 	}
 
+
 	@Override
 	public void onWebSocketOpen(Session session) {
 		try {
@@ -66,7 +66,7 @@ public class JettyWebSocketHandlerAdapter implements Session.Listener {
 			this.webSocketHandler.afterConnectionEstablished(this.wsSession);
 			this.nativeSession.demand();
 		}
-		catch (Exception ex) {
+		catch (Throwable ex) {
 			tryCloseWithError(ex);
 		}
 	}
@@ -79,7 +79,7 @@ public class JettyWebSocketHandlerAdapter implements Session.Listener {
 			this.webSocketHandler.handleMessage(this.wsSession, message);
 			this.nativeSession.demand();
 		}
-		catch (Exception ex) {
+		catch (Throwable ex) {
 			tryCloseWithError(ex);
 		}
 	}
@@ -93,7 +93,7 @@ public class JettyWebSocketHandlerAdapter implements Session.Listener {
 			this.webSocketHandler.handleMessage(this.wsSession, message);
 			this.nativeSession.demand();
 		}
-		catch (Exception ex) {
+		catch (Throwable ex) {
 			tryCloseWithError(ex);
 		}
 	}
@@ -106,18 +106,19 @@ public class JettyWebSocketHandlerAdapter implements Session.Listener {
 			this.webSocketHandler.handleMessage(this.wsSession, message);
 			this.nativeSession.demand();
 		}
-		catch (Exception ex) {
+		catch (Throwable ex) {
 			tryCloseWithError(ex);
 		}
 	}
 
 	@Override
-	public void onWebSocketClose(int statusCode, String reason) {
+	public void onWebSocketClose(int statusCode, String reason, Callback callback) {
 		CloseStatus closeStatus = new CloseStatus(statusCode, reason);
+		callback.succeed();
 		try {
 			this.webSocketHandler.afterConnectionClosed(this.wsSession, closeStatus);
 		}
-		catch (Exception ex) {
+		catch (Throwable ex) {
 			if (logger.isWarnEnabled()) {
 				logger.warn("Unhandled exception from afterConnectionClosed for " + this, ex);
 			}
@@ -129,7 +130,7 @@ public class JettyWebSocketHandlerAdapter implements Session.Listener {
 		try {
 			this.webSocketHandler.handleTransportError(this.wsSession, cause);
 		}
-		catch (Exception ex) {
+		catch (Throwable ex) {
 			if (logger.isWarnEnabled()) {
 				logger.warn("Unhandled exception from handleTransportError for " + this, ex);
 			}
@@ -147,4 +148,5 @@ public class JettyWebSocketHandlerAdapter implements Session.Listener {
 			}
 		}
 	}
+
 }

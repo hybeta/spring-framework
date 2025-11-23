@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,9 @@ package org.springframework.jndi;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 
+import org.jspecify.annotations.Nullable;
+
 import org.springframework.core.SpringProperties;
-import org.springframework.lang.Nullable;
 
 /**
  * {@link JndiLocatorSupport} subclass with public lookup methods,
@@ -42,7 +43,7 @@ public class JndiLocatorDelegate extends JndiLocatorSupport {
 	 * JNDI lookups such as for a {@code DataSource} or some other environment resource.
 	 * The flag literally just affects code which attempts JNDI searches based on the
 	 * {@code JndiLocatorDelegate.isDefaultJndiEnvironmentAvailable()} check: in particular,
-	 * {@code StandardServletEnvironment} and {@code StandardPortletEnvironment}.
+	 * {@code StandardServletEnvironment}.
 	 * @since 4.3
 	 * @see #isDefaultJndiEnvironmentAvailable()
 	 * @see JndiPropertySource
